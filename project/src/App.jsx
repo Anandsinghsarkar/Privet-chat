@@ -2,8 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
 import { 
   getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, 
-  signOut, onAuthStateChanged, deleteUser, GoogleAuthProvider, signInWithPopup, signInWithRedirect,
-  getRedirectResult 
+  signOut, onAuthStateChanged, deleteUser, GoogleAuthProvider, signInWithPopup 
 } from 'firebase/auth';
 import { 
   getFirestore, collection, doc, setDoc, onSnapshot, getDocs, getDoc, 
@@ -141,31 +140,6 @@ const AuthScreen = ({ auth, db, showToast }) => {
   });
   const [profilePic, setProfilePic] = useState(null);
 
-  useEffect(() => {
-    let active = true;
-    const finishGoogleRedirect = async () => {
-      try {
-        const result = await getRedirectResult(auth);
-        if (!active || !result?.user) return;
-        setLoading(true);
-        await saveGoogleUser(result.user);
-        showToast('Google se login successful!', 'success');
-      } catch (error) {
-        const messages = {
-          'auth/account-exists-with-different-credential': 'Is email ka account kisi aur login method se already bana hua hai.',
-          'auth/unauthorized-domain': 'Firebase me is website ka domain Authorized Domains me add karein.',
-          'auth/operation-not-allowed': 'Firebase Authentication me Google provider enable karein.',
-          'auth/network-request-failed': 'Network problem. Internet check karein.'
-        };
-        showToast(messages[error.code] || error.message || 'Google login failed.', 'error');
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-    finishGoogleRedirect();
-    return () => { active = false; };
-  }, []);
-
   if (showForgotPassword) {
     return (
       <ForgotPassword
@@ -217,39 +191,28 @@ const AuthScreen = ({ auth, db, showToast }) => {
   const handleGoogleLogin = async () => {
     if (loading) return;
     setLoading(true);
+
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
 
-      // Popup is fast on desktop/mobile browsers. If it is blocked,
-      // use redirect so Google login can still continue.
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      await saveGoogleUser(result.user);
+
       showToast('Google se login successful!', 'success');
     } catch (error) {
-      if (error.code === 'auth/popup-blocked' || error.code === 'auth/operation-not-supported-in-this-environment') {
-        try {
-          const provider = new GoogleAuthProvider();
-          provider.setCustomParameters({ prompt: 'select_account' });
-          await signInWithRedirect(auth, provider);
-          return;
-        } catch (redirectError) {
-          const msg = redirectError.code === 'auth/unauthorized-domain'
-            ? 'Firebase me is website ka domain Authorized Domains me add karein.'
-            : redirectError.message || 'Google redirect login failed.';
-          showToast(msg, 'error');
-        }
-      } else {
-        const messages = {
-          'auth/popup-closed-by-user': 'Google login window close kar di gayi.',
-          'auth/cancelled-popup-request': 'Google login cancel ho gaya.',
-          'auth/account-exists-with-different-credential': 'Is email ka account Email/Password se bana hai. Pehle us account se login karein.',
-          'auth/operation-not-allowed': 'Firebase Authentication me Google provider enable karein.',
-          'auth/unauthorized-domain': 'Firebase Authentication > Settings > Authorized domains me apna website domain add karein.',
-          'auth/network-request-failed': 'Network problem. Internet check karein.',
-          'auth/invalid-api-key': 'Firebase API configuration check karein.'
-        };
-        showToast(messages[error.code] || error.message || 'Google login failed.', 'error');
-      }
+      const messages = {
+        'auth/popup-closed-by-user': 'Google login window close kar di gayi.',
+        'auth/cancelled-popup-request': 'Google login already start ho chuka hai.',
+        'auth/popup-blocked': 'Browser ne Google login popup block kar diya. Popup allow karke dobara try karein.',
+        'auth/account-exists-with-different-credential': 'Is email ka account Email/Password se bana hai. Pehle us account se login karein.',
+        'auth/operation-not-allowed': 'Firebase Authentication me Google provider enable karein.',
+        'auth/unauthorized-domain': 'Firebase me current Vercel domain Authorized Domains me add karein.',
+        'auth/network-request-failed': 'Network problem. Internet check karein.',
+        'auth/invalid-api-key': 'Firebase API configuration check karein.'
+      };
+
+      showToast(messages[error.code] || error.message || 'Google login failed.', 'error');
     } finally {
       setLoading(false);
     }
