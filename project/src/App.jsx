@@ -283,7 +283,8 @@ const AuthScreen = ({ auth, db, showToast }) => {
           {isLogin ? 'Login Karein' : 'Naya Account Banayein'}
         </h2>
         
-        <form onSubmit={handleSubmit} className="space-y-4">\n          <button
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <button
             type="button"
             disabled={loading}
             onClick={handleGoogleLogin}
