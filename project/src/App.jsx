@@ -134,6 +134,7 @@ const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel }) => {
 const AuthScreen = ({ auth, db, showToast }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '', username: '', email: '', dob: '', gender: 'Male', password: '', confirmPassword: ''
   });
@@ -304,9 +305,11 @@ const ForgotPassword = ({ auth, showToast, onBack }) => {
     } catch (error) {
       const messages = {
         'auth/invalid-email': 'Email address sahi nahi hai.',
-        'auth/user-not-found': 'Is email se account nahi mila.',
+        'auth/user-not-found': 'Is email se account nahi mila. Email dobara check karein.',
         'auth/too-many-requests': 'Bahut zyada attempts. Thodi der baad try karein.',
-        'auth/network-request-failed': 'Network problem. Internet check karein.'
+        'auth/network-request-failed': 'Network problem. Internet check karein.',
+        'auth/operation-not-allowed': 'Firebase me Email/Password sign-in enable nahi hai.',
+        'auth/invalid-credential': 'Email verify nahi ho saka. Email dobara check karein.'
       };
       showToast(messages[error.code] || 'Reset email bhejne me problem hui.', 'error');
     } finally {
