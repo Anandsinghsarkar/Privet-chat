@@ -134,12 +134,10 @@ const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel }) => {
 const AuthScreen = ({ auth, db, showToast }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-
-  useEffect(() => {
-    const openForgot = () => setShowForgotPassword(true);
-    window.addEventListener('open-forgot-password', openForgot);
-    return () => window.removeEventListener('open-forgot-password', openForgot);
-  }, []);
+  const [formData, setFormData] = useState({
+    name: '', username: '', email: '', dob: '', gender: 'Male', password: '', confirmPassword: ''
+  });
+  const [profilePic, setProfilePic] = useState(null);
 
   if (showForgotPassword) {
     return (
@@ -150,12 +148,6 @@ const AuthScreen = ({ auth, db, showToast }) => {
       />
     );
   }
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '', username: '', email: '', dob: '', gender: 'Male', password: '', confirmPassword: ''
-  });
-  const [profilePic, setProfilePic] = useState(null);
-
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const handleImageChange = async (e) => {
@@ -262,7 +254,7 @@ const AuthScreen = ({ auth, db, showToast }) => {
             <div className="text-right">
               <button
                 type="button"
-                onClick={() => window.dispatchEvent(new Event('open-forgot-password'))}
+                onClick={() => setShowForgotPassword(true)}
                 className="text-sm text-green-600 font-semibold hover:underline"
               >
                 Forgot Password?
