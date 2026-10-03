@@ -2,10 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
 import { 
   getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, 
-  signOut, onAuthStateChanged, deleteUser, GoogleAuthProvider, signInWithPopup 
+  signOut, onAuthStateChanged, deleteUser, GoogleAuthProvider, signInWithPopup, signInWithRedirect,
+  getRedirectResult 
 } from 'firebase/auth';
 import { 
-  getFirestore, collection, doc, setDoc, onSnapshot, getDocs, 
+  getFirestore, collection, doc, setDoc, onSnapshot, getDocs, getDoc, 
   addDoc, updateDoc, deleteDoc, serverTimestamp, arrayUnion, writeBatch, increment
 } from 'firebase/firestore';
 import { 
@@ -140,6 +141,31 @@ const AuthScreen = ({ auth, db, showToast }) => {
   });
   const [profilePic, setProfilePic] = useState(null);
 
+  useEffect(() => {
+    let active = true;
+    const finishGoogleRedirect = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (!active || !result?.user) return;
+        setLoading(true);
+        await saveGoogleUser(result.user);
+        showToast('Google se login successful!', 'success');
+      } catch (error) {
+        const messages = {
+          'auth/account-exists-with-different-credential': 'Is email ka account kisi aur login method se already bana hua hai.',
+          'auth/unauthorized-domain': 'Firebase me is website ka domain Authorized Domains me add karein.',
+          'auth/operation-not-allowed': 'Firebase Authentication me Google provider enable karein.',
+          'auth/network-request-failed': 'Network problem. Internet check karein.'
+        };
+        showToast(messages[error.code] || error.message || 'Google login failed.', 'error');
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    finishGoogleRedirect();
+    return () => { active = false; };
+  }, []);
+
   if (showForgotPassword) {
     return (
       <ForgotPassword
@@ -149,61 +175,81 @@ const AuthScreen = ({ auth, db, showToast }) => {
       />
     );
   }
+  const saveGoogleUser = async (user) => {
+    const userRef = doc(db, 'users', user.uid);
+    const userSnap = await getDoc(userRef);
+
+    const fallbackAvatar = 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
+
+    if (!userSnap.exists()) {
+      const baseUsername = (user.email || user.displayName || 'googleuser')
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, '')
+        .slice(0, 20) || 'googleuser';
+
+      await setDoc(userRef, {
+        id: user.uid,
+        name: user.displayName || 'Google User',
+        username: `${baseUsername}_${user.uid.slice(0, 6)}`,
+        email: user.email || '',
+        dob: '',
+        gender: 'Other',
+        profilePic: user.photoURL || fallbackAvatar,
+        bio: 'Hey there! I am using As Like.',
+        isOnline: true,
+        lastSeen: serverTimestamp(),
+        typingTo: null,
+        authProvider: 'google'
+      });
+    } else {
+      const old = userSnap.data();
+      await setDoc(userRef, {
+        name: user.displayName || old.name || 'Google User',
+        email: user.email || old.email || '',
+        profilePic: user.photoURL || old.profilePic || fallbackAvatar,
+        isOnline: true,
+        lastSeen: serverTimestamp(),
+        authProvider: 'google'
+      }, { merge: true });
+    }
+  };
+
   const handleGoogleLogin = async () => {
+    if (loading) return;
     setLoading(true);
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
 
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-
-      const userRef = doc(db, 'users', user.uid);
-      const existingSnap = await getDocs(collection(db, 'users'));
-      const existingUser = existingSnap.docs.find(d => d.id === user.uid);
-
-      if (!existingUser) {
-        const baseUsername = (user.email || user.displayName || 'googleuser')
-          .toLowerCase()
-          .replace(/[^a-z0-9_]/g, '')
-          .slice(0, 20) || 'googleuser';
-
-        await setDoc(userRef, {
-          id: user.uid,
-          name: user.displayName || 'Google User',
-          username: `${baseUsername}_${user.uid.slice(0, 6)}`,
-          email: user.email || '',
-          dob: '',
-          gender: 'Other',
-          profilePic: user.photoURL || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y',
-          bio: 'Hey there! I am using As Like.',
-          isOnline: true,
-          lastSeen: serverTimestamp(),
-          typingTo: null,
-          authProvider: 'google'
-        });
-      } else {
-        await setDoc(userRef, {
-          name: user.displayName || existingUser.data().name || 'Google User',
-          email: user.email || existingUser.data().email || '',
-          profilePic: user.photoURL || existingUser.data().profilePic || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y',
-          isOnline: true,
-          lastSeen: serverTimestamp(),
-          authProvider: 'google'
-        }, { merge: true });
-      }
-
+      // Popup is fast on desktop/mobile browsers. If it is blocked,
+      // use redirect so Google login can still continue.
+      await signInWithPopup(auth, provider);
       showToast('Google se login successful!', 'success');
     } catch (error) {
-      const messages = {
-        'auth/popup-closed-by-user': 'Google login window close kar di gayi.',
-        'auth/popup-blocked': 'Browser ne Google login popup block kar diya. Popup allow karein.',
-        'auth/cancelled-popup-request': 'Google login cancel ho gaya.',
-        'auth/account-exists-with-different-credential': 'Is email ka account kisi aur login method se already bana hua hai.',
-        'auth/operation-not-allowed': 'Firebase me Google Sign-in enable nahi hai.',
-        'auth/network-request-failed': 'Network problem. Internet check karein.'
-      };
-      showToast(messages[error.code] || error.message || 'Google login failed.', 'error');
+      if (error.code === 'auth/popup-blocked' || error.code === 'auth/operation-not-supported-in-this-environment') {
+        try {
+          const provider = new GoogleAuthProvider();
+          provider.setCustomParameters({ prompt: 'select_account' });
+          await signInWithRedirect(auth, provider);
+          return;
+        } catch (redirectError) {
+          const msg = redirectError.code === 'auth/unauthorized-domain'
+            ? 'Firebase me is website ka domain Authorized Domains me add karein.'
+            : redirectError.message || 'Google redirect login failed.';
+          showToast(msg, 'error');
+        }
+      } else {
+        const messages = {
+          'auth/popup-closed-by-user': 'Google login window close kar di gayi.',
+          'auth/cancelled-popup-request': 'Google login cancel ho gaya.',
+          'auth/account-exists-with-different-credential': 'Is email ka account Email/Password se bana hai. Pehle us account se login karein.',
+          'auth/operation-not-allowed': 'Firebase Authentication me Google provider enable karein.',
+          'auth/unauthorized-domain': 'Firebase Authentication > Settings > Authorized domains me apna website domain add karein.',
+          'auth/network-request-failed': 'Network problem. Internet check karein.',
+          'auth/invalid-api-key': 'Firebase API configuration check karein.'
+        };
+        showToast(messages[error.code] || error.message || 'Google login failed.', 'error');
+      }
     } finally {
       setLoading(false);
     }
