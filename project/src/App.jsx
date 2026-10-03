@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
 import { 
   getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, 
-  signOut, onAuthStateChanged, deleteUser 
+  signOut, onAuthStateChanged, deleteUser, GoogleAuthProvider, signInWithPopup 
 } from 'firebase/auth';
 import { 
   getFirestore, collection, doc, setDoc, onSnapshot, getDocs, 
@@ -149,6 +149,66 @@ const AuthScreen = ({ auth, db, showToast }) => {
       />
     );
   }
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      const userRef = doc(db, 'users', user.uid);
+      const existingSnap = await getDocs(collection(db, 'users'));
+      const existingUser = existingSnap.docs.find(d => d.id === user.uid);
+
+      if (!existingUser) {
+        const baseUsername = (user.email || user.displayName || 'googleuser')
+          .toLowerCase()
+          .replace(/[^a-z0-9_]/g, '')
+          .slice(0, 20) || 'googleuser';
+
+        await setDoc(userRef, {
+          id: user.uid,
+          name: user.displayName || 'Google User',
+          username: `${baseUsername}_${user.uid.slice(0, 6)}`,
+          email: user.email || '',
+          dob: '',
+          gender: 'Other',
+          profilePic: user.photoURL || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y',
+          bio: 'Hey there! I am using As Like.',
+          isOnline: true,
+          lastSeen: serverTimestamp(),
+          typingTo: null,
+          authProvider: 'google'
+        });
+      } else {
+        await setDoc(userRef, {
+          name: user.displayName || existingUser.data().name || 'Google User',
+          email: user.email || existingUser.data().email || '',
+          profilePic: user.photoURL || existingUser.data().profilePic || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y',
+          isOnline: true,
+          lastSeen: serverTimestamp(),
+          authProvider: 'google'
+        }, { merge: true });
+      }
+
+      showToast('Google se login successful!', 'success');
+    } catch (error) {
+      const messages = {
+        'auth/popup-closed-by-user': 'Google login window close kar di gayi.',
+        'auth/popup-blocked': 'Browser ne Google login popup block kar diya. Popup allow karein.',
+        'auth/cancelled-popup-request': 'Google login cancel ho gaya.',
+        'auth/account-exists-with-different-credential': 'Is email ka account kisi aur login method se already bana hua hai.',
+        'auth/operation-not-allowed': 'Firebase me Google Sign-in enable nahi hai.',
+        'auth/network-request-failed': 'Network problem. Internet check karein.'
+      };
+      showToast(messages[error.code] || error.message || 'Google login failed.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const handleImageChange = async (e) => {
@@ -214,7 +274,23 @@ const AuthScreen = ({ auth, db, showToast }) => {
           {isLogin ? 'Login Karein' : 'Naya Account Banayein'}
         </h2>
         
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">\n          <button
+            type="button"
+            disabled={loading}
+            onClick={handleGoogleLogin}
+            className="w-full border border-gray-300 bg-white text-gray-800 p-3 rounded-lg font-semibold hover:bg-gray-50 transition flex items-center justify-center gap-3 disabled:opacity-60"
+          >
+            <span className="font-bold text-lg">G</span>
+            {loading ? 'Google login ho raha hai...' : 'Continue with Google'}
+          </button>
+
+          <div className="flex items-center gap-3 my-1">
+            <div className="h-px bg-gray-200 flex-1"></div>
+            <span className="text-xs text-gray-400">OR</span>
+            <div className="h-px bg-gray-200 flex-1"></div>
+          </div>
+
+
           {!isLogin && (
             <>
               <div className="flex justify-center mb-4 relative">
