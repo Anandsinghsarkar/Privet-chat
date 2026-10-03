@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
 import { 
-  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, 
+  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, 
   signOut, onAuthStateChanged, deleteUser 
 } from 'firebase/auth';
 import { 
@@ -133,6 +133,23 @@ const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel }) => {
 // --- SCREENS ---
 const AuthScreen = ({ auth, db, showToast }) => {
   const [isLogin, setIsLogin] = useState(true);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+
+  useEffect(() => {
+    const openForgot = () => setShowForgotPassword(true);
+    window.addEventListener('open-forgot-password', openForgot);
+    return () => window.removeEventListener('open-forgot-password', openForgot);
+  }, []);
+
+  if (showForgotPassword) {
+    return (
+      <ForgotPassword
+        auth={auth}
+        showToast={showToast}
+        onBack={() => setShowForgotPassword(false)}
+      />
+    );
+  }
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '', username: '', email: '', dob: '', gender: 'Male', password: '', confirmPassword: ''
@@ -240,6 +257,18 @@ const AuthScreen = ({ auth, db, showToast }) => {
             required className="w-full p-3 border rounded-lg" onChange={handleChange} 
           />
           <input type="password" name="password" placeholder="Password" required className="w-full p-3 border rounded-lg" onChange={handleChange} />
+
+          {isLogin && (
+            <div className="text-right">
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new Event('open-forgot-password'))}
+                className="text-sm text-green-600 font-semibold hover:underline"
+              >
+                Forgot Password?
+              </button>
+            </div>
+          )}
           
           {!isLogin && (
             <input type="password" name="confirmPassword" placeholder="Confirm Password" required className="w-full p-3 border rounded-lg" onChange={handleChange} />
@@ -256,6 +285,82 @@ const AuthScreen = ({ auth, db, showToast }) => {
             {isLogin ? "Yahan banayein" : "Login karein"}
           </button>
         </p>
+      </div>
+    </div>
+  );
+};
+
+
+const ForgotPassword = ({ auth, showToast, onBack }) => {
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleReset = async (e) => {
+    e.preventDefault();
+    const cleanEmail = email.trim();
+
+    if (!cleanEmail) {
+      showToast('Email address enter karein.', 'error');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, cleanEmail);
+      showToast('Password reset email bhej di gayi hai. Inbox/Spam check karein.', 'success');
+      setEmail('');
+    } catch (error) {
+      const messages = {
+        'auth/invalid-email': 'Email address sahi nahi hai.',
+        'auth/user-not-found': 'Is email se account nahi mila.',
+        'auth/too-many-requests': 'Bahut zyada attempts. Thodi der baad try karein.',
+        'auth/network-request-failed': 'Network problem. Internet check karein.'
+      };
+      showToast(messages[error.code] || 'Reset email bhejne me problem hui.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
+      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
+        <div className="flex justify-center mb-5 text-green-500">
+          <MessageCircle size={48} />
+        </div>
+
+        <h2 className="text-2xl font-bold text-center text-gray-800">Forgot Password</h2>
+        <p className="text-center text-gray-500 text-sm mt-2 mb-6">
+          Apne account ka email enter karein. Firebase aapko password reset email bhejega.
+        </p>
+
+        <form onSubmit={handleReset} className="space-y-4">
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Registered Email Address"
+            required
+            autoComplete="email"
+            className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-green-400"
+          />
+
+          <button
+            disabled={loading}
+            type="submit"
+            className="w-full bg-green-500 text-white p-3 rounded-lg font-bold hover:bg-green-600 transition disabled:opacity-60"
+          >
+            {loading ? 'Email bheji ja rahi hai...' : 'Send Reset Email'}
+          </button>
+        </form>
+
+        <button
+          type="button"
+          onClick={onBack}
+          className="w-full mt-4 text-green-600 font-bold hover:underline"
+        >
+          ← Login par wapas jayein
+        </button>
       </div>
     </div>
   );
