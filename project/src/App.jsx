@@ -1281,7 +1281,8 @@ export default function App() {
   const liveViewProfileUser = viewProfileUser ? (allUsers.find(u => u.id === viewProfileUser.id) || viewProfileUser) : null;
 
   return (
-    <div className="app-shell font-sans antialiased text-gray-900 bg-gray-200 min-h-screen relative">\n      <ThemeSwitcher />
+    <div className="app-shell font-sans antialiased text-gray-900 bg-gray-200 min-h-screen relative">
+      <ThemeSwitcher />
       {toast && (
         <div className={`fixed top-4 right-4 z-[200] p-4 rounded shadow-lg text-white font-bold transition-all ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
           {toast.msg}
