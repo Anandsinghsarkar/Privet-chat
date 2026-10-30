@@ -630,6 +630,8 @@ const ChatScreen = ({ db, currentUser, activeChatUser, chats, setCurrentView, se
 
   const typingTimeoutRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+  const hasInitialScrolledRef = useRef(false);
   const fileInputRef = useRef(null);
 
   const myClearedAt = chatDoc?.clearedAt?.[currentUser.uid]?.toMillis() || 0;
@@ -666,7 +668,20 @@ const ChatScreen = ({ db, currentUser, activeChatUser, chats, setCurrentView, se
         }, { merge: true }).catch(()=>{});
       }
 
-      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+      // Keep the newest messages in view while the reader is already at the bottom.
+      // If they scroll up to read history, incoming messages must not pull them back down.
+      const container = messagesContainerRef.current;
+      const wasNearBottom = !hasInitialScrolledRef.current || !container ||
+        (container.scrollHeight - container.scrollTop - container.clientHeight < 140);
+      if (wasNearBottom) {
+        requestAnimationFrame(() => {
+          messagesEndRef.current?.scrollIntoView({
+            behavior: hasInitialScrolledRef.current ? 'smooth' : 'auto',
+            block: 'end'
+          });
+          hasInitialScrolledRef.current = true;
+        });
+      }
     });
 
     return () => {
@@ -851,18 +866,18 @@ const ChatScreen = ({ db, currentUser, activeChatUser, chats, setCurrentView, se
     >
       
       {/* Header */}
-      <div className="bg-green-600 text-white p-3 flex items-center gap-3 shadow-md z-20">
-        <button onClick={() => setCurrentView('home')}><ArrowLeft /></button>
+      <div className="chat-header bg-green-600 text-white flex items-center gap-3 shadow-md z-20 shrink-0">
+        <button type="button" aria-label="Back to chats" onClick={(e) => { e.stopPropagation(); setCurrentView('home'); }} className="chat-back-button"><ArrowLeft size={23} /></button>
         <img 
-          src={activeChatUser.profilePic} 
-          alt="Profile" 
-          className="w-10 h-10 rounded-full object-cover cursor-pointer border border-green-700"
+          src={activeChatUser.profilePic || 'https://www.gravatar.com/avatar/?d=mp'}
+          alt="Profile picture"
+          className="chat-header-avatar w-11 h-11 rounded-full object-cover cursor-pointer border border-white/40"
           onClick={() => { setViewProfileUser(activeChatUser); setCurrentView('profile'); }}
         />
-        <div className="flex-1 cursor-pointer" onClick={() => { setViewProfileUser(activeChatUser); setCurrentView('profile'); }}>
-          <h2 className="font-bold leading-tight">{activeChatUser.name}</h2>
-          <p className="text-xs text-green-100 font-medium tracking-wide">
-            {isTyping ? 'typing...' : (isOnline ? 'Online' : `last seen ${lastSeenText}`)}
+        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => { setViewProfileUser(activeChatUser); setCurrentView('profile'); }}>
+          <h2 className="font-semibold leading-tight truncate">{activeChatUser.name || activeChatUser.username || 'User'}</h2>
+          <p className="text-xs text-green-100 font-medium tracking-wide truncate" aria-live="polite">
+            {isTyping ? 'typing…' : (isOnline ? 'online' : `last seen ${lastSeenText}`)}
           </p>
         </div>
         
@@ -890,7 +905,7 @@ const ChatScreen = ({ db, currentUser, activeChatUser, chats, setCurrentView, se
       </div>
 
       {/* Messages */}
-      <div className="chat-messages flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-2 relative" style={{backgroundColor:'#e5ddd5',backgroundImage: chatWallpaper ? `linear-gradient(rgba(255,255,255,.28),rgba(255,255,255,.28)),url("${chatWallpaper}")` : "url('https://www.transparenttextures.com/patterns/cubes.png')",backgroundSize:chatWallpaper?'cover':'auto',backgroundPosition:'center'}}>
+      <div ref={messagesContainerRef} className="chat-messages flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-2 relative" style={{backgroundColor:'#e5ddd5',backgroundImage: chatWallpaper ? `linear-gradient(rgba(255,255,255,.28),rgba(255,255,255,.28)),url("${chatWallpaper}")` : "url('https://www.transparenttextures.com/patterns/cubes.png')",backgroundSize:chatWallpaper?'cover':'auto',backgroundPosition:'center'}}>
         {visibleMessages.length === 0 && (
            <p className="text-center text-gray-500 text-sm mt-10 bg-white/60 py-2 rounded max-w-[200px] mx-auto shadow-sm backdrop-blur">
              Messages end to end encrypted.
@@ -967,7 +982,7 @@ const ChatScreen = ({ db, currentUser, activeChatUser, chats, setCurrentView, se
 
       {/* Input Area */}
       <div 
-        className="chat-input-area bg-gray-100 p-2 flex flex-col relative z-40"
+        className="chat-input-area bg-gray-100 p-2 flex flex-col relative z-40 shrink-0"
         onClick={(e) => e.stopPropagation()} 
       >
         {editingMsg && (
