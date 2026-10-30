@@ -465,8 +465,9 @@ const HomeScreen = ({ currentUser, userData, db, setCurrentView, chats, allUsers
       <div className="bg-green-600 text-white p-4 flex justify-between items-center shadow-sm">
         <h1 className="text-xl font-bold tracking-wide">As Like</h1>
         <div className="flex gap-4 items-center">
-          <button onClick={() => setCurrentView('settings')}><Settings size={22} /></button>
-              <button onClick={() => setCurrentView('editProfile')} className="w-9 h-9 rounded-full overflow-hidden border-2 border-white shadow-sm shrink-0">
+          <button onClick={() => setCurrentView('settings')} aria-label="Settings"><Settings size={22} /></button>
+          <ThemeSwitcher />
+          <button onClick={() => setCurrentView('editProfile')} className="w-9 h-9 rounded-full overflow-hidden border-2 border-white shadow-sm shrink-0">
             <img src={userData?.profilePic || 'https://www.gravatar.com/avatar/?d=mp'} alt="Me" className="w-full h-full object-cover" />
           </button>
         </div>
@@ -594,7 +595,7 @@ const ChatScreen = ({ db, currentUser, activeChatUser, chats, setCurrentView, se
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const wallpaperKey = `aslike-chat-wallpaper-${currentUser.uid}-${chatId}`;
-  const [chatWallpaper, setChatWallpaper] = useState(() => localStorage.getItem(wallpaperKey) || '');
+  const [chatWallpaper, setChatWallpaper] = useState(() => { try { return localStorage.getItem(wallpaperKey) || ''; } catch { return ''; } });
   const wallpaperInputRef = useRef(null);
   const handleWallpaperChange = (e) => {
     const file = e.target.files?.[0]; if (!file) return;
@@ -610,7 +611,7 @@ const ChatScreen = ({ db, currentUser, activeChatUser, chats, setCurrentView, se
     }; image.onerror = () => showToast('Image open nahi ho payi', 'error'); image.src = reader.result; };
     reader.readAsDataURL(file); e.target.value = '';
   };
-  const removeChatWallpaper = () => { localStorage.removeItem(wallpaperKey); setChatWallpaper(''); showToast('Default background restore ho gaya', 'success'); };
+  const removeChatWallpaper = () => { try { localStorage.removeItem(wallpaperKey); } catch {} setChatWallpaper(''); showToast('Default background restore ho gaya', 'success'); };
   
   const [msgMenuOpen, setMsgMenuOpen] = useState(null); 
   const [editingMsg, setEditingMsg] = useState(null);
@@ -1306,7 +1307,6 @@ export default function App() {
 
   return (
     <div className="app-shell font-sans antialiased text-gray-900 bg-gray-200 min-h-screen relative">
-      <ThemeSwitcher />
       {toast && (
         <div className={`fixed top-4 right-4 z-[200] p-4 rounded shadow-lg text-white font-bold transition-all ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
           {toast.msg}
