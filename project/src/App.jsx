@@ -466,7 +466,7 @@ const HomeScreen = ({ currentUser, userData, db, setCurrentView, chats, allUsers
         <h1 className="text-xl font-bold tracking-wide">As Like</h1>
         <div className="flex gap-4 items-center">
           <button onClick={() => setCurrentView('settings')}><Settings size={22} /></button>
-          <button onClick={() => setCurrentView('editProfile')} className="w-8 h-8 rounded-full overflow-hidden border-2 border-white shadow-sm">
+              <button onClick={() => setCurrentView('editProfile')} className="w-9 h-9 rounded-full overflow-hidden border-2 border-white shadow-sm shrink-0">
             <img src={userData?.profilePic || 'https://www.gravatar.com/avatar/?d=mp'} alt="Me" className="w-full h-full object-cover" />
           </button>
         </div>
@@ -593,6 +593,24 @@ const HomeScreen = ({ currentUser, userData, db, setCurrentView, chats, allUsers
 const ChatScreen = ({ db, currentUser, activeChatUser, chats, setCurrentView, setViewProfileUser, showToast, showConfirm }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
+  const wallpaperKey = `aslike-chat-wallpaper-${currentUser.uid}-${chatId}`;
+  const [chatWallpaper, setChatWallpaper] = useState(() => localStorage.getItem(wallpaperKey) || '');
+  const wallpaperInputRef = useRef(null);
+  const handleWallpaperChange = (e) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    if (!file.type.startsWith('image/')) { showToast('Please image file select karein', 'error'); return; }
+    const reader = new FileReader();
+    reader.onload = () => { const image = new Image(); image.onload = () => {
+      const scale = Math.min(1, 1400 / Math.max(image.width, image.height));
+      const canvas = document.createElement('canvas'); canvas.width = Math.round(image.width * scale); canvas.height = Math.round(image.height * scale);
+      canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+      const data = canvas.toDataURL('image/jpeg', 0.72);
+      try { localStorage.setItem(wallpaperKey, data); setChatWallpaper(data); showToast('Chat background set ho gaya', 'success'); }
+      catch { showToast('Image bahut badi hai. Chhoti image try karein.', 'error'); }
+    }; image.onerror = () => showToast('Image open nahi ho payi', 'error'); image.src = reader.result; };
+    reader.readAsDataURL(file); e.target.value = '';
+  };
+  const removeChatWallpaper = () => { localStorage.removeItem(wallpaperKey); setChatWallpaper(''); showToast('Default background restore ho gaya', 'success'); };
   
   const [msgMenuOpen, setMsgMenuOpen] = useState(null); 
   const [editingMsg, setEditingMsg] = useState(null);
@@ -845,6 +863,10 @@ const ChatScreen = ({ db, currentUser, activeChatUser, chats, setCurrentView, se
           </p>
         </div>
         
+        <div className="flex items-center gap-1">
+          <input ref={wallpaperInputRef} type="file" accept="image/*" className="hidden" onChange={handleWallpaperChange} />
+          <button type="button" title="Chat background upload" aria-label="Chat background upload" onClick={(e) => { e.stopPropagation(); wallpaperInputRef.current?.click(); }} className="p-2 rounded-full hover:bg-white/15"><ImageIcon size={20} /></button>
+          {chatWallpaper && <button type="button" title="Remove background" onClick={(e) => { e.stopPropagation(); removeChatWallpaper(); }} className="p-2 rounded-full hover:bg-white/15 text-xs">Reset</button>}
         {/* Clear Chat Menu */}
         <div className="relative">
           <button onClick={(e) => { e.stopPropagation(); setChatMenuOpen(!chatMenuOpen); }} className="p-2">
@@ -861,10 +883,11 @@ const ChatScreen = ({ db, currentUser, activeChatUser, chats, setCurrentView, se
             </div>
           )}
         </div>
+        </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-2 relative" style={{backgroundImage: "url('https://www.transparenttextures.com/patterns/cubes.png')"}}>
+      <div className="chat-messages flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-2 relative" style={{backgroundColor:'#e5ddd5',backgroundImage: chatWallpaper ? `linear-gradient(rgba(255,255,255,.28),rgba(255,255,255,.28)),url("${chatWallpaper}")` : "url('https://www.transparenttextures.com/patterns/cubes.png')",backgroundSize:chatWallpaper?'cover':'auto',backgroundPosition:'center'}}>
         {visibleMessages.length === 0 && (
            <p className="text-center text-gray-500 text-sm mt-10 bg-white/60 py-2 rounded max-w-[200px] mx-auto shadow-sm backdrop-blur">
              Messages end to end encrypted.
@@ -1163,7 +1186,7 @@ const ThemeSwitcher=()=>{
  const [theme,setTheme]=useState(()=>{try{return JSON.parse(localStorage.getItem('aslike-theme'))||THEME_PRESETS[0]}catch{return THEME_PRESETS[0]}});
  useEffect(()=>{document.documentElement.style.setProperty('--app-primary',theme.primary);document.documentElement.style.setProperty('--app-accent',theme.accent);document.documentElement.style.setProperty('--app-surface',theme.surface);localStorage.setItem('aslike-theme',JSON.stringify(theme))},[theme]);
  const updateColor=(key,value)=>setTheme(old=>({...old,[key]:value}));
- return <div className="theme-switcher fixed top-3 right-3 z-[250]">
+ return <div className="theme-switcher relative">
   <button type="button" onClick={()=>setOpen(v=>!v)} className="theme-toggle flex items-center gap-2 rounded-full px-4 py-2 text-white font-bold shadow-xl"><span className="theme-color-orb" style={{background:theme.primary}}/>Theme <span>{open?'×':'⌄'}</span></button>
   {open&&<div className="theme-panel mt-3 w-[min(340px,calc(100vw-24px))] rounded-2xl p-4 shadow-2xl">
    <p className="font-black text-base">Appearance Studio</p><p className="text-xs opacity-65 mb-3">Poore website ke colours yahan se badlein</p>
