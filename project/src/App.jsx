@@ -1175,7 +1175,8 @@ const ThemeSwitcher=()=>{
   </div>}
  </div>
 };
-\n// --- MAIN APP COMPONENT ---
+
+// --- MAIN APP COMPONENT ---
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [userData, setUserData] = useState(null);
