@@ -843,7 +843,7 @@ const ChatScreen = ({ db, currentUser, activeChatUser, chats, setCurrentView, se
 
   return (
     <div 
-      className="flex flex-col h-screen bg-[#e5ddd5] max-w-3xl mx-auto shadow-2xl relative"
+      className="chat-screen flex flex-col h-[100dvh] min-h-0 bg-[#e5ddd5] max-w-3xl mx-auto shadow-2xl relative"
       onClick={() => { setMsgMenuOpen(null); setChatMenuOpen(false); setShowEmojiPicker(false); }} 
     >
       
@@ -964,7 +964,7 @@ const ChatScreen = ({ db, currentUser, activeChatUser, chats, setCurrentView, se
 
       {/* Input Area */}
       <div 
-        className="bg-gray-100 p-2 flex flex-col relative z-40"
+        className="chat-input-area bg-gray-100 p-2 flex flex-col relative z-40"
         onClick={(e) => e.stopPropagation()} 
       >
         {editingMsg && (
