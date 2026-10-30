@@ -1149,7 +1149,33 @@ const SettingsScreen = ({ auth, db, currentUser, setCurrentView, showToast, show
   );
 };
 
-// --- MAIN APP COMPONENT ---
+
+const THEME_PRESETS = [
+ {name:'Ocean Blue',primary:'#2563eb',accent:'#06b6d4',surface:'#eff6ff'},
+ {name:'Royal Purple',primary:'#7c3aed',accent:'#c084fc',surface:'#f5f3ff'},
+ {name:'Emerald',primary:'#059669',accent:'#34d399',surface:'#ecfdf5'},
+ {name:'Sunset',primary:'#ea580c',accent:'#f59e0b',surface:'#fff7ed'},
+ {name:'Rose',primary:'#e11d48',accent:'#fb7185',surface:'#fff1f2'},
+ {name:'Midnight',primary:'#334155',accent:'#38bdf8',surface:'#f1f5f9'}
+];
+const ThemeSwitcher=()=>{
+ const [open,setOpen]=useState(false);
+ const [theme,setTheme]=useState(()=>{try{return JSON.parse(localStorage.getItem('aslike-theme'))||THEME_PRESETS[0]}catch{return THEME_PRESETS[0]}});
+ useEffect(()=>{document.documentElement.style.setProperty('--app-primary',theme.primary);document.documentElement.style.setProperty('--app-accent',theme.accent);document.documentElement.style.setProperty('--app-surface',theme.surface);localStorage.setItem('aslike-theme',JSON.stringify(theme))},[theme]);
+ const updateColor=(key,value)=>setTheme(old=>({...old,[key]:value}));
+ return <div className="theme-switcher fixed top-3 right-3 z-[250]">
+  <button type="button" onClick={()=>setOpen(v=>!v)} className="theme-toggle flex items-center gap-2 rounded-full px-4 py-2 text-white font-bold shadow-xl"><span className="theme-color-orb" style={{background:theme.primary}}/>Theme <span>{open?'×':'⌄'}</span></button>
+  {open&&<div className="theme-panel mt-3 w-[min(340px,calc(100vw-24px))] rounded-2xl p-4 shadow-2xl">
+   <p className="font-black text-base">Appearance Studio</p><p className="text-xs opacity-65 mb-3">Poore website ke colours yahan se badlein</p>
+   <div className="grid grid-cols-3 gap-2">{THEME_PRESETS.map(p=><button key={p.name} type="button" onClick={()=>setTheme(p)} className={`theme-preset rounded-xl p-2 text-left ${theme.name===p.name?'selected':''}`}><span className="block h-7 rounded-lg mb-1" style={{background:`linear-gradient(120deg,${p.primary},${p.accent})`}}/><span className="text-[11px] font-bold">{p.name}</span></button>)}</div>
+   <div className="mt-4 border-t pt-3"><p className="text-sm font-bold mb-2">Custom colours</p><div className="grid grid-cols-2 gap-3">
+    <label className="text-xs font-semibold flex items-center gap-2">Primary <input aria-label="Primary colour" type="color" value={theme.primary} onChange={e=>updateColor('primary',e.target.value)}/></label>
+    <label className="text-xs font-semibold flex items-center gap-2">Accent <input aria-label="Accent colour" type="color" value={theme.accent} onChange={e=>updateColor('accent',e.target.value)}/></label>
+   </div></div><button type="button" onClick={()=>setTheme(THEME_PRESETS[0])} className="mt-3 text-xs font-bold underline">Reset default theme</button>
+  </div>}
+ </div>
+};
+\n// --- MAIN APP COMPONENT ---
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [userData, setUserData] = useState(null);
@@ -1255,7 +1281,7 @@ export default function App() {
   const liveViewProfileUser = viewProfileUser ? (allUsers.find(u => u.id === viewProfileUser.id) || viewProfileUser) : null;
 
   return (
-    <div className="font-sans antialiased text-gray-900 bg-gray-200 min-h-screen relative">
+    <div className="app-shell font-sans antialiased text-gray-900 bg-gray-200 min-h-screen relative">\n      <ThemeSwitcher />
       {toast && (
         <div className={`fixed top-4 right-4 z-[200] p-4 rounded shadow-lg text-white font-bold transition-all ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
           {toast.msg}
