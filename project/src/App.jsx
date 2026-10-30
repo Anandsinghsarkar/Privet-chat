@@ -594,6 +594,13 @@ const HomeScreen = ({ currentUser, userData, db, setCurrentView, chats, allUsers
 const ChatScreen = ({ db, currentUser, activeChatUser, chats, setCurrentView, setViewProfileUser, showToast, showConfirm }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
+
+  // Resolve the conversation ID before using it for wallpaper storage.
+  // Previously wallpaperKey referenced chatId before chatId was declared,
+  // causing a ReferenceError and a completely blank chat screen on mobile.
+  const chatDoc = chats.find(c => Array.isArray(c.participants) && c.participants.includes(activeChatUser.id));
+  const generateChatId = () => [currentUser.uid, activeChatUser.id].sort().join('_');
+  const chatId = chatDoc?.id || generateChatId();
   const wallpaperKey = `aslike-chat-wallpaper-${currentUser.uid}-${chatId}`;
   const [chatWallpaper, setChatWallpaper] = useState(() => { try { return localStorage.getItem(wallpaperKey) || ''; } catch { return ''; } });
   const wallpaperInputRef = useRef(null);
@@ -624,11 +631,6 @@ const ChatScreen = ({ db, currentUser, activeChatUser, chats, setCurrentView, se
   const typingTimeoutRef = useRef(null);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
-
-  let chatDoc = chats.find(c => c.participants.includes(activeChatUser.id));
-  let chatId = chatDoc?.id;
-  const generateChatId = () => [currentUser.uid, activeChatUser.id].sort().join('_');
-  if (!chatId) chatId = generateChatId();
 
   const myClearedAt = chatDoc?.clearedAt?.[currentUser.uid]?.toMillis() || 0;
 
